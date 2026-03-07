@@ -1,11 +1,45 @@
-from fastapi import FastAPI
-from app.database.database import engine, Base
-from app.models import user_model
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+
+from app.database.database import engine, Base, SessionLocal
+from app.models.user_model import User
+from app.schemas.user_schema import UserCreate
+from app.utils.security import hash_password
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @app.get("/")
 def root():
     return {"message": "Coding Interview Platform Backend"}
+
+
+@app.post("/signup")
+def signup(user: UserCreate, db: Session = Depends(get_db)):
+    
+    hashed_password = hash_password(user.password)
+
+    new_user = User(
+        username=user.username,
+        email=user.email,
+        password=hashed_password
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "message": "User created successfully",
+        "user_id": new_user.id
+    }
