@@ -5,6 +5,8 @@ from app.database.database import engine, Base, SessionLocal
 from app.models.user_model import User
 from app.schemas.user_schema import UserCreate
 from app.utils.security import hash_password
+from app.utils.security import verify_password, create_access_token
+from app.schemas.user_schema import UserLogin
 
 app = FastAPI()
 
@@ -42,4 +44,22 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     return {
         "message": "User created successfully",
         "user_id": new_user.id
+    }
+
+@app.post("/login")
+def login(user: UserLogin, db: Session = Depends(get_db)):
+
+    db_user = db.query(User).filter(User.email == user.email).first()
+
+    if not db_user:
+        return {"error": "User not found"}
+
+    if not verify_password(user.password, db_user.password):
+        return {"error": "Invalid password"}
+
+    token = create_access_token({"user_id": db_user.id})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer"
     }
