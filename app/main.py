@@ -7,6 +7,9 @@ from app.schemas.user_schema import UserCreate
 from app.utils.security import hash_password
 from app.utils.security import verify_password, create_access_token
 from app.schemas.user_schema import UserLogin
+from app.models.question_model import Question
+from app.schemas.question_schema import QuestionCreate
+from app.models import question_model
 
 app = FastAPI()
 
@@ -63,3 +66,39 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         "access_token": token,
         "token_type": "bearer"
     }
+
+@app.post("/questions")
+def add_question(question: QuestionCreate, db: Session = Depends(get_db)):
+
+    new_question = Question(
+        title=question.title,
+        description=question.description,
+        difficulty=question.difficulty
+    )
+
+    db.add(new_question)
+    db.commit()
+    db.refresh(new_question)
+
+    return {
+        "message": "Question added",
+        "question_id": new_question.id
+    }
+
+@app.get("/questions")
+def get_questions(db: Session = Depends(get_db)):
+
+    questions = db.query(Question).all()
+
+    return questions
+
+@app.get("/questions/{question_id}")
+def get_question(question_id: int, db: Session = Depends(get_db)):
+
+    question = db.query(Question).filter(Question.id == question_id).first()
+
+    if not question:
+        return {"error": "Question not found"}
+
+    return question
+
