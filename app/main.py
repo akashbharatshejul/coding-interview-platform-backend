@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-
 from app.database.database import engine, Base, SessionLocal
 from app.models.user_model import User
 from app.schemas.user_schema import UserCreate
@@ -10,6 +9,11 @@ from app.schemas.user_schema import UserLogin
 from app.models.question_model import Question
 from app.schemas.question_schema import QuestionCreate
 from app.models import question_model
+from app.models.submission_model import Submission
+from app.schemas.submission_schema import SubmissionCreate
+from app.models import submission_model
+from app.utils.auth import get_current_user
+
 
 app = FastAPI()
 
@@ -101,4 +105,39 @@ def get_question(question_id: int, db: Session = Depends(get_db)):
         return {"error": "Question not found"}
 
     return question
+
+@app.post("/submit")
+def submit_code(
+    submission: SubmissionCreate,
+    user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    new_submission = Submission(
+        user_id=user["user_id"],
+        question_id=submission.question_id,
+        code=submission.code,
+        status="Pending"
+    )
+
+    db.add(new_submission)
+    db.commit()
+    db.refresh(new_submission)
+
+    return {
+        "message": "Submission received",
+        "submission_id": new_submission.id
+    }
+
+@app.get("/submissions")
+def get_submissions(
+    user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    submissions = db.query(Submission).filter(
+        Submission.user_id == user["user_id"]
+    ).all()
+
+    return submissions
 
