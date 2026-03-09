@@ -13,6 +13,7 @@ from app.models.submission_model import Submission
 from app.schemas.submission_schema import SubmissionCreate
 from app.models import submission_model
 from app.utils.auth import get_current_user
+from app.services.judge_service import run_code
 
 
 app = FastAPI()
@@ -113,11 +114,20 @@ def submit_code(
     db: Session = Depends(get_db)
 ):
 
+    output = run_code(submission.code)
+
+    expected_output = "Hello"
+
+    if output == expected_output:
+        status = "Accepted"
+    else:
+        status = "Wrong Answer"
+
     new_submission = Submission(
         user_id=user["user_id"],
         question_id=submission.question_id,
         code=submission.code,
-        status="Pending"
+        status=status
     )
 
     db.add(new_submission)
@@ -125,8 +135,8 @@ def submit_code(
     db.refresh(new_submission)
 
     return {
-        "message": "Submission received",
-        "submission_id": new_submission.id
+        "output": output,
+        "status": status
     }
 
 @app.get("/submissions")
