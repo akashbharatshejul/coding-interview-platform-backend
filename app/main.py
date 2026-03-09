@@ -114,14 +114,20 @@ def submit_code(
     db: Session = Depends(get_db)
 ):
 
-    output = run_code(submission.code)
+    test_cases = [
+        {"input": "1 2", "output": "3"},
+        {"input": "5 7", "output": "12"},
+        {"input": "10 20", "output": "30"}
+    ]
 
-    expected_output = "Hello"
+    status = "Accepted"
 
-    if output == expected_output:
-        status = "Accepted"
-    else:
-        status = "Wrong Answer"
+    for test in test_cases:
+        output = run_code(submission.code, test["input"])
+
+        if output != test["output"]:
+            status = "Wrong Answer"
+            break
 
     new_submission = Submission(
         user_id=user["user_id"],
@@ -134,10 +140,7 @@ def submit_code(
     db.commit()
     db.refresh(new_submission)
 
-    return {
-        "output": output,
-        "status": status
-    }
+    return {"status": status}
 
 @app.get("/submissions")
 def get_submissions(
