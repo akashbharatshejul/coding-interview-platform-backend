@@ -14,6 +14,7 @@ from app.schemas.submission_schema import SubmissionCreate
 from app.models import submission_model
 from app.utils.auth import get_current_user
 from app.services.judge_service import run_code
+from sqlalchemy import func
 
 
 app = FastAPI()
@@ -154,3 +155,26 @@ def get_submissions(
 
     return submissions
 
+@app.get("/leaderboard")
+def get_leaderboard(db: Session = Depends(get_db)):
+
+    leaderboard = (
+        db.query(
+            Submission.user_id,
+            func.count(Submission.id).label("score")
+        )
+        .filter(Submission.status == "Accepted")
+        .group_by(Submission.user_id)
+        .order_by(func.count(Submission.id).desc())
+        .all()
+    )
+
+    result = []
+
+    for row in leaderboard:
+        result.append({
+            "user_id": row.user_id,
+            "score": row.score
+        })
+
+    return result
