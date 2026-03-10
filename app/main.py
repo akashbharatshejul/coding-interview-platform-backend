@@ -160,11 +160,12 @@ def get_leaderboard(db: Session = Depends(get_db)):
 
     leaderboard = (
         db.query(
-            Submission.user_id,
+            User.username,
             func.count(Submission.id).label("score")
         )
+        .join(Submission, Submission.user_id == User.id)
         .filter(Submission.status == "Accepted")
-        .group_by(Submission.user_id)
+        .group_by(User.username)
         .order_by(func.count(Submission.id).desc())
         .all()
     )
@@ -173,8 +174,42 @@ def get_leaderboard(db: Session = Depends(get_db)):
 
     for row in leaderboard:
         result.append({
-            "user_id": row.user_id,
+            "username": row.username,
             "score": row.score
+        })
+
+    return result
+
+@app.get("/profile")
+def get_profile(
+    user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    db_user = db.query(User).filter(User.id == user["user_id"]).first()
+
+    return {
+        "id": db_user.id,
+        "username": db_user.username,
+        "email": db_user.email
+    }
+
+@app.get("/my-submissions")
+def my_submissions(
+    user = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    submissions = db.query(Submission).filter(
+        Submission.user_id == user["user_id"]
+    ).all()
+
+    result = []
+
+    for sub in submissions:
+        result.append({
+            "question_id": sub.question_id,
+            "status": sub.status
         })
 
     return result
