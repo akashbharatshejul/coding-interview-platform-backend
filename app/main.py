@@ -15,6 +15,7 @@ from app.models import submission_model
 from app.utils.auth import get_current_user
 from app.services.judge_service import run_code
 from sqlalchemy import func
+from app.utils.admin_auth import get_admin_user
 
 
 app = FastAPI()
@@ -73,8 +74,13 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         "token_type": "bearer"
     }
 
+
 @app.post("/questions")
-def add_question(question: QuestionCreate, db: Session = Depends(get_db)):
+def add_question(
+    question: QuestionCreate,
+    admin = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
 
     new_question = Question(
         title=question.title,
@@ -86,10 +92,7 @@ def add_question(question: QuestionCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_question)
 
-    return {
-        "message": "Question added",
-        "question_id": new_question.id
-    }
+    return {"message": "Question added"}
 
 @app.get("/questions")
 def get_questions(db: Session = Depends(get_db)):
@@ -213,3 +216,20 @@ def my_submissions(
         })
 
     return result
+
+@app.delete("/questions/{question_id}")
+def delete_question(
+    question_id: int,
+    admin = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+
+    question = db.query(Question).filter(Question.id == question_id).first()
+
+    if not question:
+        return {"error": "Question not found"}
+
+    db.delete(question)
+    db.commit()
+
+    return {"message": "Question deleted"}
