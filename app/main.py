@@ -30,6 +30,19 @@ def get_db():
     finally:
         db.close()
 
+def get_score(difficulty: str):
+
+    if difficulty == "Easy":
+        return 10
+    elif difficulty == "Medium":
+        return 20
+    elif difficulty == "Hard":
+        return 30
+    else:
+        return 0        
+
+
+
 
 @app.get("/")
 def root():
@@ -161,27 +174,38 @@ def get_submissions(
 @app.get("/leaderboard")
 def get_leaderboard(db: Session = Depends(get_db)):
 
-    leaderboard = (
-        db.query(
-            User.username,
-            func.count(Submission.id).label("score")
-        )
-        .join(Submission, Submission.user_id == User.id)
+    submissions = (
+        db.query(Submission, Question)
+        .join(Question, Submission.question_id == Question.id)
         .filter(Submission.status == "Accepted")
-        .group_by(User.username)
-        .order_by(func.count(Submission.id).desc())
         .all()
     )
 
-    result = []
+    scores = {}
 
-    for row in leaderboard:
-        result.append({
-            "username": row.username,
-            "score": row.score
+    for submission, question in submissions:
+
+        score = get_score(question.difficulty)
+
+        if submission.user_id not in scores:
+            scores[submission.user_id] = 0
+
+        scores[submission.user_id] += score
+
+    leaderboard = []
+
+    for user_id, score in scores.items():
+
+        user = db.query(User).filter(User.id == user_id).first()
+
+        leaderboard.append({
+            "username": user.username,
+            "score": score
         })
 
-    return result
+    leaderboard.sort(key=lambda x: x["score"], reverse=True)
+
+    return leaderboard
 
 @app.get("/profile")
 def get_profile(
