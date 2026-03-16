@@ -16,6 +16,7 @@ from app.utils.auth import get_current_user
 from app.services.judge_service import run_code
 from sqlalchemy import func
 from app.utils.admin_auth import get_admin_user
+from app.models.testcase_model import TestCase
 
 
 app = FastAPI()
@@ -28,7 +29,7 @@ def get_db():
     try:
         yield db
     finally:
-        db.close()
+        db.close() 
 
 def get_score(difficulty: str):
 
@@ -57,7 +58,8 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     new_user = User(
         username=user.username,
         email=user.email,
-        password=hashed_password
+        password=hashed_password,
+        role="user"
     )
 
     db.add(new_user)
@@ -131,11 +133,9 @@ def submit_code(
     db: Session = Depends(get_db)
 ):
 
-    test_cases = [
-        {"input": "1 2", "output": "3"},
-        {"input": "5 7", "output": "12"},
-        {"input": "10 20", "output": "30"}
-    ]
+    test_cases = db.query(TestCase).filter(
+      TestCase.question_id == submission.question_id
+    ).all()
 
     status = "Accepted"
 
@@ -257,3 +257,23 @@ def delete_question(
     db.commit()
 
     return {"message": "Question deleted"}
+
+@app.post("/testcases")
+def add_testcase(
+    question_id: int,
+    input: str,
+    output: str,
+    admin = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+
+    testcase = TestCase(
+        question_id=question_id,
+        input=input,
+        output=output
+    )
+
+    db.add(testcase)
+    db.commit()
+
+    return {"message": "Test case added"}
